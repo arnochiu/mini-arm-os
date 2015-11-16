@@ -8,6 +8,9 @@
  * set when that data is transferred to the TDR
  */
 #define USART_FLAG_TXE	((uint16_t) 0x0080)
+#define USART_FLAG_RXNE ((uint16_t) 0x0020)
+#define MAX_COMMAND_LENGTH (50)
+#define MAX_ARGC (5)
 
 void usart_init(void)
 {
@@ -36,34 +39,121 @@ void print_str(const char *str)
 	}
 }
 
-static void delay(volatile int count)
+char usart2_rx()
 {
-	count *= 50000;
-	while (count--);
-}
-
-static void busy_loop(void *str)
-{
-	while (1) {
-		print_str(str);
-		print_str(": Running...\n");
-		delay(1000);
+	while(1)
+	{
+		if((*USART2_SR) & (USART_FLAG_RXNE))
+			return (*USART2_DR) & 0xff;
 	}
 }
 
-void test1(void *userdata)
-{
-	busy_loop(userdata);
+int strcmp(char *str1, char *str2){
+	int index = 0;
+	while(str1[index] != '\0'){
+		if(str1[index] != str2[index])
+			return 0;
+		index++;
+	}
+	if(str2[index+1] != '\0')
+		return 0;
+	else
+		return 1;
 }
 
-void test2(void *userdata)
-{
-	busy_loop(userdata);
+void int2char(int x, char *str){
+	int num;
+	int tmp = x;
+	for(int i = 0; i < 10; i++){
+		num = tmp % 10;
+		str[10-i-1] = '0' + num;
+		tmp = tmp / 10;
+	}
 }
 
-void test3(void *userdata)
+int fibonacci(int x){
+	if(x==0) return 0;
+	if(x==1 || x==2) return 1;
+	return fibonacci(x-1)+fibonacci(x-2);
+}
+extern int fibonacci(int x);
+
+void shell(void *userdata)
 {
-	busy_loop(userdata);
+	char ichar;
+	char command_buffer[MAX_COMMAND_LENGTH+1];
+	char command[MAX_ARGC][MAX_COMMAND_LENGTH+1];
+	int argv_index = 0;
+	int char_index = 0;
+	int index = 0;
+	int fib_result = 0;
+	char fib_result_char[10];
+	while(1){
+		while(char_index<=MAX_COMMAND_LENGTH){
+			char_index++;
+			command_buffer[char_index] = '\0';
+		}
+		print_str("arno@mini-arm-os:~$ ");
+		char_index = 0;
+		
+		//command input
+		while(1){
+			ichar = usart2_rx();
+			if(ichar == 13){//enter
+				print_str("\n");
+				break;
+			}
+			else if(ichar == 127){//backspace
+				if(char_index!=0){
+					print_str("\b");
+					print_str(" ");
+					print_str("\b");
+					char_index--;
+					command_buffer[char_index] = '\0';
+				}
+			}
+			else{
+				if(char_index<MAX_COMMAND_LENGTH){
+					command_buffer[char_index] = ichar;
+					print_str(&command_buffer[char_index]);
+					char_index++;
+				}
+			}
+		}
+		
+		//command identification
+		if(char_index != 0){
+			for(argv_index = 0; argv_index<MAX_ARGC; argv_index++)
+				for(char_index = 0; char_index<=MAX_COMMAND_LENGTH; char_index++)
+					command[argv_index][char_index] = '\0';
+			argv_index = 0;
+			char_index = 0;
+			for(index = 0; index<MAX_COMMAND_LENGTH; index++){
+				if(command_buffer[index] == ' '){
+					if(char_index!=0){
+						char_index = 0;
+						argv_index++;
+					}
+				}
+				else if(command_buffer[index] != '\0'){
+					command[argv_index][char_index] = command_buffer[index];
+					char_index++;
+				}
+				else {}
+			}
+			
+			if(strcmp(command[0], "fibonacci\0")){
+				fib_result = fibonacci(5);
+				int2char(fib_result, fib_result_char);
+				print_str(fib_result_char);
+				print_str("\n");
+			}
+			
+		}
+		char_index = 0;
+		argv_index = 0;
+		index = 0;
+	}
 }
 
 /* 72MHz */
@@ -74,18 +164,12 @@ void test3(void *userdata)
 
 int main(void)
 {
-	const char *str1 = "Task1", *str2 = "Task2", *str3 = "Task3";
+	const char *str1 = "shell";
 
 	usart_init();
 
-	if (thread_create(test1, (void *) str1) == -1)
-		print_str("Thread 1 creation failed\r\n");
-
-	if (thread_create(test2, (void *) str2) == -1)
-		print_str("Thread 2 creation failed\r\n");
-
-	if (thread_create(test3, (void *) str3) == -1)
-		print_str("Thread 3 creation failed\r\n");
+	if (thread_create(shell, (void *) str1) == -1)
+		print_str("Shell creation failed\r\n");
 
 	/* SysTick configuration */
 	*SYSTICK_LOAD = (CPU_CLOCK_HZ / TICK_RATE_HZ) - 1UL;
