@@ -71,13 +71,34 @@ void int2char(int x, char *str){
 	}
 }
 
+int str2int(char *str){
+	int num = 0;
+	int index = 0;
+	if(str[0]=='-')
+		index++;
+	while(str[index] != '\0'){
+		if(str[index]>='0' && str[index]<='9'){
+			num = num*10 + (str[index]-'0');
+			index++;
+		}
+		else
+			return -999;
+	}
+	if(str[0]=='-')
+		return num*(-1);
+	else
+		return num;
+	
+}
+
+extern int fibonacci(int x);
+/*
 int fibonacci(int x){
-	if(x==0) return 0;
+	if(x<=0) return 0;
 	if(x==1 || x==2) return 1;
 	return fibonacci(x-1)+fibonacci(x-2);
 }
-extern int fibonacci(int x);
-
+*/
 void shell(void *userdata)
 {
 	char ichar;
@@ -143,10 +164,20 @@ void shell(void *userdata)
 			}
 			
 			if(strcmp(command[0], "fibonacci\0")){
-				fib_result = fibonacci(5);
-				int2char(fib_result, fib_result_char);
-				print_str(fib_result_char);
-				print_str("\n");
+				if(argv_index != 1){
+					print_str("Command should be: fibonacci+(int)");
+					print_str("\n");
+				}
+				else if(str2int(command[1])==-999){
+					print_str("Command should be: fibonacci+(int)");
+					print_str("\n");
+				}
+				else{
+					fib_result = fibonacci(str2int(command[1]));
+					int2char(fib_result, fib_result_char);
+					print_str(fib_result_char);
+					print_str("\n");
+				}
 			}
 			
 		}
