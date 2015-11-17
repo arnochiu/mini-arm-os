@@ -163,6 +163,9 @@ void shell(void *userdata)
 				else {}
 			}
 			
+			if(char_index==0)
+				argv_index--;
+			
 			if(strcmp(command[0], "fibonacci\0")){
 				if(argv_index != 1){
 					print_str("Command should be: fibonacci+(int)");
